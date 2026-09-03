@@ -92,13 +92,13 @@ function loadRecords() {
         document.getElementById('records').innerHTML = "";
         return;
       }
-      // Sort newest first using the ESP32 timestamp.
+      // Sort newest first using the timestamp sent by the ESP32.
       const rows = Object.values(data).sort((a, b) => {
         if (a.timestamp != null && b.timestamp != null) {
           return Number(b.timestamp) - Number(a.timestamp);
         }
-        return ((b.date || '') + (b.time || '')).localeCompare(
-               (a.date || '') + (a.time || ''));
+        return ((b.date || "") + (b.time || "")).localeCompare(
+               (a.date || "") + (a.time || ""));
       });
       currentRecords = rows;
 
