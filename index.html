@@ -5,29 +5,25 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HONEYWELL CO₂ MONITOR</title>
 <style>
-body { margin:0; font-family:Arial,Helvetica,sans-serif; background:#f3f6f9; color:#222; }
-.header { background:#17202a; color:white; padding:25px; text-align:center; }
-.header h1 { margin:0; font-size:28px; }
-.header p { margin:8px 0 0; opacity:.8; }
-.container { max-width:1100px; margin:auto; padding:20px; }
-.cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:15px; }
-.card { background:white; border-radius:12px; padding:20px; box-shadow:0 3px 10px rgba(0,0,0,.08); }
-.card h3 { margin-top:0; font-size:15px; color:#666; }
-.value { font-size:28px; font-weight:bold; }
-.buttons { margin-top:20px; display:flex; gap:10px; flex-wrap:wrap; }
-button { border:none; padding:12px 22px; border-radius:7px; color:white; font-size:15px; cursor:pointer; }
-.start { background:#198754; }
-.stop { background:#dc3545; }
-.download { background:#0d6efd; }
-.clear { background:#6c757d; }
-.tablebox { margin-top:25px; background:white; border-radius:12px; padding:20px; box-shadow:0 3px 10px rgba(0,0,0,.08); overflow-x:auto; }
-table { width:100%; border-collapse:collapse; }
-th,td { padding:10px; border-bottom:1px solid #ddd; text-align:center; }
-th { background:#f1f3f5; }
+body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f3f6f9;color:#222}
+.header{background:#17202a;color:white;padding:25px;text-align:center}
+.header h1{margin:0;font-size:28px}.header p{margin:8px 0 0;opacity:.8}
+.container{max-width:1200px;margin:auto;padding:20px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:15px}
+.card{background:white;border-radius:12px;padding:18px;box-shadow:0 3px 10px rgba(0,0,0,.08)}
+.card h3{margin:0 0 8px;font-size:14px;color:#666}.value{font-size:24px;font-weight:bold}
+.buttons{margin-top:20px;display:flex;gap:10px;flex-wrap:wrap}
+button{border:none;padding:12px 22px;border-radius:7px;color:white;font-size:15px;cursor:pointer}
+.start{background:#198754}.stop{background:#dc3545}.download{background:#0d6efd}.clear{background:#6c757d}
+.status{margin-top:15px;padding:12px;border-radius:8px;background:white;box-shadow:0 3px 10px rgba(0,0,0,.06)}
+.tablebox{margin-top:25px;background:white;border-radius:12px;padding:20px;box-shadow:0 3px 10px rgba(0,0,0,.08);overflow-x:auto}
+table{width:100%;border-collapse:collapse}th,td{padding:10px;border-bottom:1px solid #ddd;text-align:center;white-space:nowrap}
+th{background:#f1f3f5}
+.summary{margin-top:25px}.summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.small{font-size:13px;color:#666}
 </style>
 </head>
 <body>
-
 <div class="header">
   <h1>HONEYWELL CO₂ MONITOR</h1>
   <p>Live from anywhere - powered by Firebase</p>
@@ -40,7 +36,9 @@ th { background:#f1f3f5; }
     <div class="card"><h3>Date</h3><div class="value" id="date">---</div></div>
     <div class="card"><h3>Time</h3><div class="value" id="time">---</div></div>
     <div class="card"><h3>Recording</h3><div class="value" id="recording">---</div></div>
-    <div class="card"><h3>Total Records</h3><div class="value" id="count">---</div></div>
+    <div class="card"><h3>EEPROM Records</h3><div class="value" id="count">---</div></div>
+    <div class="card"><h3>Session ID</h3><div class="value" id="sessionId">---</div></div>
+    <div class="card"><h3>Session Records</h3><div class="value" id="sessionRecords">---</div></div>
   </div>
 
   <div class="buttons">
@@ -50,11 +48,26 @@ th { background:#f1f3f5; }
     <button class="clear" onclick="clearData()">CLEAR ALL DATA</button>
   </div>
 
+  <div class="status">
+    <b>Session:</b> <span id="sessionStatus">Waiting...</span>
+    <span class="small"> | Start: <span id="sessionStart">---</span> | Stop: <span id="sessionStop">---</span></span>
+  </div>
+
+  <div class="summary">
+    <h2>Current Session Statistics</h2>
+    <div class="summary-grid">
+      <div class="card"><h3>Minimum CO₂</h3><div class="value" id="min">---</div></div>
+      <div class="card"><h3>Maximum CO₂</h3><div class="value" id="max">---</div></div>
+      <div class="card"><h3>Average CO₂</h3><div class="value" id="avg">---</div></div>
+      <div class="card"><h3>Test Duration</h3><div class="value" id="duration">---</div></div>
+    </div>
+  </div>
+
   <div class="tablebox">
     <h2>Stored Readings</h2>
     <table>
       <thead>
-        <tr><th>No.</th><th>Date</th><th>Time</th><th>CO₂ (ppm)</th></tr>
+        <tr><th>No.</th><th>Session</th><th>Record No.</th><th>Date</th><th>Time</th><th>CO₂ (ppm)</th></tr>
       </thead>
       <tbody id="records"></tbody>
     </table>
@@ -62,104 +75,97 @@ th { background:#f1f3f5; }
 </div>
 
 <script>
-// ---- CHANGE THIS if your database URL is ever different ----
-const FIREBASE_URL = "https://co2-monitor-49cbd-default-rtdb.firebaseio.com/";
+const FIREBASE_URL="https://co2-monitor-49cbd-default-rtdb.firebaseio.com/";
+let currentRecords=[];
 
-// Keeps the most recently loaded rows so Download CSV can use them
-let currentRecords = [];
-
-function updateLive() {
-  fetch(FIREBASE_URL + "live.json")
-    .then(r => r.json())
-    .then(d => {
-      if (!d) return;
-      document.getElementById('co2').innerText = d.co2 ?? '---';
-      document.getElementById('rssi').innerText = d.rssi ?? '---';
-      document.getElementById('date').innerText = d.date ?? '---';
-      document.getElementById('time').innerText = d.time ?? '---';
-      document.getElementById('recording').innerText = d.recording ?? '---';
-      document.getElementById('count').innerText = d.count ?? '---';
-    })
-    .catch(err => console.error("Live fetch failed", err));
+function updateLive(){
+  fetch(FIREBASE_URL+"live.json")
+  .then(r=>r.json())
+  .then(d=>{
+    if(!d)return;
+    co2.innerText=d.co2??"---";
+    rssi.innerText=d.rssi??"---";
+    date.innerText=d.date??"---";
+    time.innerText=d.time??"---";
+    recording.innerText=d.recording??"---";
+    count.innerText=d.count??"---";
+    sessionId.innerText=d.sessionId??"---";
+    sessionRecords.innerText=d.sessionRecords??"---";
+    min.innerText=d.min?d.min+" ppm":"---";
+    max.innerText=d.max?d.max+" ppm":"---";
+    avg.innerText=d.avg?d.avg+" ppm":"---";
+    sessionStart.innerText=d.sessionStart??"---";
+    sessionStop.innerText=d.sessionStop??"---";
+    sessionStatus.innerText=d.recording==="YES" ? "RECORDING ACTIVE" : "LIVE MONITORING";
+    if(d.sessionStart && d.sessionStop && d.sessionStart!=="---" && d.sessionStop!=="---"){
+      const a=parseDate(d.sessionStart),b=parseDate(d.sessionStop);
+      duration.innerText=(a&&b)?formatDuration((b-a)/1000):"---";
+    }else if(d.recording==="YES" && d.sessionStart && d.sessionStart!=="---"){
+      const a=parseDate(d.sessionStart),b=new Date();
+      duration.innerText=a?formatDuration((b-a)/1000):"---";
+    }else duration.innerText="---";
+  }).catch(e=>console.error("Live fetch failed",e));
 }
 
-function loadRecords() {
-  fetch(FIREBASE_URL + "records.json")
-    .then(r => r.json())
-    .then(data => {
-      if (!data) {
-        currentRecords = [];
-        document.getElementById('records').innerHTML = "";
-        return;
-      }
-      // data is an object keyed by timestamp - sort newest first
-      const rows = Object.values(data).sort((a, b) => (a.date + a.time > b.date + b.time ? -1 : 1));
-      currentRecords = rows;
-
-      let html = "";
-      rows.forEach((r, index) => {
-        html += `<tr><td>${index + 1}</td><td>${r.date}</td><td>${r.time}</td><td>${r.ppm}</td></tr>`;
-      });
-      document.getElementById('records').innerHTML = html;
-    })
-    .catch(err => console.error("Records fetch failed", err));
+function parseDate(s){
+  // ESP32 format: DD/MM/YYYY HH:MM:SS
+  const m=s.match(/^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2}):(\d{2})$/);
+  if(!m)return null;
+  return new Date(+m[3],+m[2]-1,+m[1],+m[4],+m[5],+m[6]);
+}
+function formatDuration(sec){
+  sec=Math.max(0,Math.floor(sec));
+  const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),s=sec%60;
+  return `${h}h ${m}m ${s}s`;
 }
 
-function sendCommand(cmd) {
-  fetch(FIREBASE_URL + "command.json", {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(cmd)
-  }).catch(err => console.error("Command send failed", err));
+function loadRecords(){
+  fetch(FIREBASE_URL+"records.json")
+  .then(r=>r.json())
+  .then(data=>{
+    if(!data){currentRecords=[];records.innerHTML='<tr><td colspan="6">No stored readings</td></tr>';return;}
+    const rows=Object.values(data).sort((a,b)=>(Number(b.timestamp||0)-Number(a.timestamp||0)));
+    currentRecords=rows;
+    let h="";
+    rows.forEach((r,i)=>{
+      h+=`<tr><td>${i+1}</td><td>${r.sessionId??"---"}</td><td>${r.recordNumber??"---"}</td><td>${r.date??"---"}</td><td>${r.time??"---"}</td><td>${r.ppm??"---"}</td></tr>`;
+    });
+    records.innerHTML=h||'<tr><td colspan="6">No stored readings</td></tr>';
+  }).catch(e=>console.error("Records fetch failed",e));
 }
 
-// Builds a CSV file from the rows currently shown in the table
-// and triggers a browser download (opens fine in Excel).
-function downloadCSV() {
-  if (!currentRecords || currentRecords.length === 0) {
-    alert("No data to download yet.");
-    return;
-  }
+function sendCommand(cmd){
+  fetch(FIREBASE_URL+"command.json",{
+    method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(cmd)
+  }).then(()=>setTimeout(updateLive,800))
+   .catch(e=>console.error("Command failed",e));
+}
 
-  let csv = "No,Date,Time,CO2_ppm\n";
-  currentRecords.forEach((r, index) => {
-    csv += `${index + 1},${r.date},${r.time},${r.ppm}\n`;
+function downloadCSV(){
+  if(!currentRecords.length){alert("No data to download yet.");return;}
+  let csv="No,Session_ID,Record_Number,Date,Time,CO2_ppm\n";
+  currentRecords.slice().reverse().forEach((r,i)=>{
+    csv+=`${i+1},${r.sessionId??""},${r.recordNumber??""},${r.date??""},${r.time??""},${r.ppm??""}\n`;
   });
-
-  const blob = new Blob([csv], { type: "text/csv" });
-  const url = URL.createObjectURL(blob);
-
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "co2_readings_" + new Date().toISOString().slice(0, 10) + ".csv";
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+  const url=URL.createObjectURL(blob),link=document.createElement("a");
+  link.href=url;link.download="co2_readings_"+new Date().toISOString().slice(0,10)+".csv";
+  document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(url);
 }
 
-// Deletes all stored readings from Firebase (and tells the ESP32
-// to clear its own local backup too, via the "clear" command).
-function clearData() {
-  if (!confirm("This will permanently delete all stored readings. Continue?")) {
-    return;
-  }
-
-  fetch(FIREBASE_URL + "records.json", { method: "DELETE" })
-    .then(() => {
-      sendCommand('clear');
-      loadRecords();
-      updateLive();
-    })
-    .catch(err => console.error("Clear failed", err));
+async function clearData(){
+  if(!confirm("This will permanently delete Firebase records and reset the ESP32 EEPROM record index. Continue?"))return;
+  try{
+    await fetch(FIREBASE_URL+"records.json",{method:"DELETE"});
+    await fetch(FIREBASE_URL+"sessions.json",{method:"DELETE"});
+    await fetch(FIREBASE_URL+"command.json",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify("clear")});
+    setTimeout(()=>{loadRecords();updateLive();},1000);
+  }catch(e){console.error("Clear failed",e);}
 }
 
-setInterval(updateLive, 2000);
-setInterval(loadRecords, 5000);
-
-updateLive();
-loadRecords();
+setInterval(updateLive,2000);
+setInterval(loadRecords,5000);
+updateLive();loadRecords();
 </script>
-
 </body>
 </html>
