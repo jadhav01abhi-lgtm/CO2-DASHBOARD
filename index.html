@@ -48,14 +48,17 @@ th { background:#f1f3f5; }
     <input type="text" id="testNameInput" maxlength="31" placeholder="Enter Test Name (e.g. Room A Test)">
     <button class="start" onclick="startTest()">START TEST</button>
     <button class="stop" onclick="sendCommand('stop')">STOP TEST</button>
-    <button class="clear" onclick="clearData()" style="margin-left:auto;">CLEAR ALL DATA</button>
+    <button class="clear" onclick="clearData()" style="margin-left:auto;">CLEAR DATA (KEEP SESSIONS)</button>
   </div>
 
   <div class="tablebox">
-    <h2>Test Records (Sessions)</h2>
+    <div class="filter-row">
+      <h2>Test Records (Sessions)</h2>
+      <button class="download" onclick="downloadSessionsCSV()">DOWNLOAD SESSIONS SUMMARY</button>
+    </div>
     <table>
       <thead>
-        <tr><th>Test ID</th><th>Test Name</th><th>Start</th><th>Stop</th><th>Duration (s)</th><th>Records</th><th>Min</th><th>Max</th><th>Avg</th></tr>
+        <tr><th>Test Name</th><th>Start</th><th>Stop</th><th>Duration (s)</th><th>Records</th><th>Reduced CO₂ (ppm)</th></tr>
       </thead>
       <tbody id="sessionsTable"></tbody>
     </table>
@@ -68,12 +71,12 @@ th { background:#f1f3f5; }
         <select id="testFilter" onchange="renderReadings()">
           <option value="all">All Tests</option>
         </select>
-        <button class="download" onclick="downloadCSV()">DOWNLOAD SELECTED TEST</button>
+        <button class="download" onclick="downloadCSV()">DOWNLOAD SELECTED READINGS</button>
       </div>
     </div>
     <table>
       <thead>
-        <tr><th>No.</th><th>Test ID</th><th>Date</th><th>Time</th><th>CO₂ (ppm)</th></tr>
+        <tr><th>No.</th><th>Date</th><th>Time</th><th>CO₂ (ppm)</th></tr>
       </thead>
       <tbody id="records"></tbody>
     </table>
@@ -117,25 +120,26 @@ function loadSessions() {
 
       Object.values(data).reverse().forEach(session => {
         if(!session) return;
+        
+        // Calculate Reduced CO2 (Max - Min)
+        let reducedCO2 = (session.max && session.min) ? (session.max - session.min) : 0;
+        
         html += `<tr>
-          <td>${session.sessionId}</td>
           <td>${session.testName}</td>
           <td>${session.start}</td>
           <td>${session.stop}</td>
           <td>${session.durationSeconds}</td>
           <td>${session.totalRecords}</td>
-          <td>${session.min}</td>
-          <td>${session.max}</td>
-          <td>${session.avg}</td>
+          <td>${reducedCO2}</td>
         </tr>`;
         
         let opt = document.createElement("option");
-        opt.value = session.sessionId;
-        opt.text = `Test ${session.sessionId}: ${session.testName}`;
+        opt.value = session.sessionId; // Keeps logic working while hidden from UI
+        opt.text = `${session.testName}`;
         filterDropdown.appendChild(opt);
       });
       
-      filterDropdown.value = currentFilter; // retain selection
+      filterDropdown.value = currentFilter; 
       document.getElementById('sessionsTable').innerHTML = html;
     }).catch(err => console.error("Sessions fetch failed", err));
 }
@@ -164,7 +168,7 @@ function renderReadings() {
   }
 
   toRender.forEach((r, index) => {
-    html += `<tr><td>${r.recordNumber}</td><td>${r.sessionId}</td><td>${r.date}</td><td>${r.time}</td><td>${r.ppm}</td></tr>`;
+    html += `<tr><td>${r.recordNumber}</td><td>${r.date}</td><td>${r.time}</td><td>${r.ppm}</td></tr>`;
   });
   document.getElementById('records').innerHTML = html;
 }
@@ -187,6 +191,32 @@ function startTest() {
   document.getElementById("testNameInput").value = "";
 }
 
+// Download the summary of all tests (The top table)
+function downloadSessionsCSV() {
+  if (!currentSessions || Object.keys(currentSessions).length === 0) {
+    alert("No session data to download.");
+    return;
+  }
+
+  let csv = "Test Name,Start,Stop,Duration (s),Records,Reduced CO2 (ppm)\n";
+  Object.values(currentSessions).reverse().forEach(session => {
+    if(!session) return;
+    let reducedCO2 = (session.max && session.min) ? (session.max - session.min) : 0;
+    csv += `${session.testName},${session.start},${session.stop},${session.durationSeconds},${session.totalRecords},${reducedCO2}\n`;
+  });
+
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "co2_all_tests_summary.csv";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+// Download the individual readings for the selected test (The bottom table)
 function downloadCSV() {
   let filter = document.getElementById("testFilter").value;
   let toDownload = currentRecords;
@@ -195,18 +225,18 @@ function downloadCSV() {
   if (filter !== "all") {
     toDownload = currentRecords.filter(r => r.sessionId == filter);
     let s = currentSessions[filter];
-    if(s) fileName = `co2_test_${filter}_${s.testName.replace(/ /g, "_")}.csv`;
+    if(s) fileName = `co2_test_${s.testName.replace(/ /g, "_")}.csv`;
   }
 
   if (toDownload.length === 0) {
-    alert("No data to download.");
+    alert("No readings to download.");
     return;
   }
 
-  let csv = "Test ID,Test Name,Record No,Date,Time,CO2_ppm\n";
+  let csv = "Test Name,Record No,Date,Time,CO2_ppm\n";
   toDownload.forEach(r => {
     let tName = currentSessions[r.sessionId] ? currentSessions[r.sessionId].testName : "Unknown";
-    csv += `${r.sessionId},${tName},${r.recordNumber},${r.date},${r.time},${r.ppm}\n`;
+    csv += `${tName},${r.recordNumber},${r.date},${r.time},${r.ppm}\n`;
   });
 
   const blob = new Blob([csv], { type: "text/csv" });
@@ -221,9 +251,10 @@ function downloadCSV() {
 }
 
 function clearData() {
-  if (!confirm("This will permanently delete all stored readings and tests. Continue?")) return;
+  if (!confirm("This will permanently delete the individual CO2 readings. Your Test Sessions summary will NOT be deleted. Continue?")) return;
+  
+  // Notice we only delete records.json now, leaving sessions.json alone.
   fetch(FIREBASE_URL + "records.json", { method: "DELETE" })
-    .then(() => fetch(FIREBASE_URL + "sessions.json", { method: "DELETE" }))
     .then(() => {
       sendCommand('clear');
       loadRecords();
