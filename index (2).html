@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HONEYWELL CO₂ MONITOR</title>
+<style>
+body { margin:0; font-family:Arial,Helvetica,sans-serif; background:#f3f6f9; color:#222; }
+.header { background:#17202a; color:white; padding:25px; text-align:center; }
+.header h1 { margin:0; font-size:28px; }
+.header p { margin:8px 0 0; opacity:.8; }
+.container { max-width:1200px; margin:auto; padding:20px; }
+.cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:15px; }
+.card { background:white; border-radius:12px; padding:20px; box-shadow:0 3px 10px rgba(0,0,0,.08); }
+.card h3 { margin-top:0; font-size:15px; color:#666; }
+.value { font-size:28px; font-weight:bold; }
+.test-controls { background: white; padding: 20px; border-radius: 12px; margin-top: 20px; display:flex; gap:10px; flex-wrap:wrap; align-items:center; box-shadow:0 3px 10px rgba(0,0,0,.08); }
+input[type="text"], select { padding:10px; border-radius:7px; border:1px solid #ccc; font-size:15px; }
+input[type="text"] { width: 250px; }
+button { border:none; padding:12px 22px; border-radius:7px; color:white; font-size:15px; cursor:pointer; }
+.start { background:#198754; }
+.stop { background:#dc3545; }
+.download { background:#0d6efd; }
+.clear { background:#6c757d; }
+.action-btn { padding: 6px 12px; font-size: 13px; margin: 2px; }
+.tablebox { margin-top:25px; background:white; border-radius:12px; padding:20px; box-shadow:0 3px 10px rgba(0,0,0,.08); overflow-x:auto; }
+table { width:100%; border-collapse:collapse; min-width: 800px; }
+th,td { padding:12px 10px; border-bottom:1px solid #ddd; text-align:center; }
+th { background:#f1f3f5; }
+.filter-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;}
+.button-group { display: flex; gap: 10px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>HONEYWELL CO₂ MONITOR</h1>
+  <p>Live from anywhere - powered by Firebase</p>
+</div>
+
+<div class="container">
+  <div class="cards">
+    <div class="card"><h3>Live CO₂</h3><div class="value"><span id="co2">---</span> ppm</div></div>
+    <div class="card"><h3>Active Test</h3><div class="value" id="currentTest" style="font-size:20px;">---</div></div>
+    <div class="card"><h3>Recording</h3><div class="value" id="recording">---</div></div>
+    <div class="card"><h3>Total Records</h3><div class="value" id="count">---</div></div>
+  </div>
+
+  <div class="test-controls">
+    <input type="text" id="testNameInput" maxlength="31" placeholder="Enter Test Name (e.g. Room A Test)">
+    <button class="start" onclick="startTest()">START TEST</button>
+    <button class="stop" onclick="stopTest()">STOP TEST</button>
+    <button class="download" id="simToggle" onclick="toggleSimulation()">ENABLE SIMULATION MODE</button>
+    <span id="simStatus" style="font-weight:bold;color:#b45309;">Simulation OFF</span>
+  </div>
+
+  <div class="tablebox">
+    <div class="filter-row">
+      <h2 style="margin:0;">Test Records (Sessions)</h2>
+      <div class="button-group">
+        <button class="download" onclick="downloadSessionsCSV()">DOWNLOAD SUMMARY</button>
+        <button class="clear" onclick="clearAllSessions()">CLEAR ALL SESSIONS</button>
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Test Name</th>
+          <th>Start</th>
+          <th>Stop</th>
+          <th>Duration</th>
+          <th>Records</th>
+          <th>Reduced CO₂ (ppm)</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="sessionsTable"></tbody>
+    </table>
+  </div>
+
+  <div class="tablebox">
+    <div class="filter-row">
+      <h2 style="margin:0;">CO₂ Readings</h2>
+      <div class="button-group">
+        <select id="testFilter" onchange="renderReadings()">
+          <option value="all">All Tests</option>
+        </select>
+        <button class="download" onclick="downloadCSV()">DOWNLOAD SELECTED READINGS</button>
+        <button class="clear" onclick="clearAllReadings()">CLEAR ALL READINGS</button>
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr><th>No.</th><th>Date</th><th>Time</th><th>CO₂ (ppm)</th></tr>
+      </thead>
+      <tbody id="records"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+// ---- CHANGE THIS if your database URL is ever different ----
+const FIREBASE_URL = "https://co2-monitor-49cbd-default-rtdb.firebaseio.com/";
+
+let currentRecords = [];
+let currentSessions = {};
+// Simulation data is stored only in this browser (localStorage), never in Firebase.
+let simulationEnabled = false;
+let simActive = false;
+let simTimer = null;
+let simSession = null;
+let simRecords = JSON.parse(localStorage.getItem("co2SimRecordsV1") || "[]");
+let simSessions = JSON.parse(localStorage.getItem("co2SimSessionsV1") || "[]");
+let simCo2 = 650;
+
+// Helper to format duration from seconds to Hours, Minutes, Seconds
+function formatDuration(seconds) {
+  if (seconds === undefined || seconds === null) return "0s";
+  let h = Math.floor(seconds / 3600);
+  let m = Math.floor((seconds % 3600) / 60);
+  let s = seconds % 60;
+  
+  let res = [];
+  if (h > 0) res.push(h + "h");
+  if (m > 0) res.push(m + "m");
+  res.push(s + "s");
+  return res.join(" ");
+}
+
+function updateLive() {
+  if (simulationEnabled && simActive) return;
+  fetch(FIREBASE_URL + "live.json")
+    .then(r => r.json())
+    .then(d => {
+      if (!d) return;
+      document.getElementById('co2').innerText = d.co2 ?? '---';
+      document.getElementById('currentTest').innerText = d.testName ?? '---';
+      document.getElementById('recording').innerText = d.recording ?? '---';
+      document.getElementById('count').innerText = d.count ?? '---';
+    }).catch(err => console.error("Live fetch failed", err));
+}
+
+function loadSessions() {
+  fetch(FIREBASE_URL + "sessions.json")
+    .then(r => r.json())
+    .then(data => {
+      currentSessions = data || {};
+      simSessions.forEach(session => { currentSessions[session.sessionId] = session; });
+      if (Object.keys(currentSessions).length === 0) {
+        document.getElementById('sessionsTable').innerHTML = "";
+        return;
+      }
+      
+      let html = "";
+      let filterDropdown = document.getElementById("testFilter");
+      let currentFilter = filterDropdown.value;
+      
+      filterDropdown.innerHTML = '<option value="all">All Tests</option>';
+
+      Object.values(currentSessions).reverse().forEach(session => {
+        if(!session) return;
+        
+        let reducedCO2 = (session.max && session.min) ? (session.max - session.min) : 0;
+        let formattedTime = formatDuration(session.durationSeconds);
+        
+        html += `<tr>
+          <td>${session.testName}</td>
+          <td>${session.start}</td>
+          <td>${session.stop}</td>
+          <td>${formattedTime}</td>
+          <td>${session.totalRecords}</td>
+          <td>${reducedCO2}</td>
+          <td>
+            <button class="download action-btn" onclick="downloadSessionReadings(${session.sessionId})">Download</button>
+            <button class="stop action-btn" onclick="deleteSession(${session.sessionId})">Delete</button>
+          </td>
+        </tr>`;
+        
+        let opt = document.createElement("option");
+        opt.value = session.sessionId;
+        opt.text = `${session.testName}`;
+        filterDropdown.appendChild(opt);
+      });
+      
+      filterDropdown.value = currentFilter; 
+      document.getElementById('sessionsTable').innerHTML = html;
+    }).catch(err => console.error("Sessions fetch failed", err));
+}
+
+function loadRecords() {
+  fetch(FIREBASE_URL + "records.json")
+    .then(r => r.json())
+    .then(data => {
+      currentRecords = Object.values(data || {}).concat(simRecords).sort((a, b) => (Number(b.timestamp || 0) - Number(a.timestamp || 0)));
+      renderReadings();
+    }).catch(err => console.error("Records fetch failed", err));
+}
+
+function renderReadings() {
+  let filter = document.getElementById("testFilter").value;
+  let html = "";
+  
+  let toRender = currentRecords;
+  if (filter !== "all") {
+    toRender = currentRecords.filter(r => r.sessionId == filter);
+  }
+
+  toRender.forEach((r, index) => {
+    html += `<tr><td>${r.recordNumber}</td><td>${r.date}</td><td>${r.time}</td><td>${r.ppm}${r.simulated ? " (SIMULATED)" : ""}</td></tr>`;
+  });
+  document.getElementById('records').innerHTML = html;
+}
+
+function toggleSimulation() {
+  simulationEnabled = !simulationEnabled;
+  const btn = document.getElementById("simToggle");
+  const status = document.getElementById("simStatus");
+  btn.innerText = simulationEnabled ? "DISABLE SIMULATION MODE" : "ENABLE SIMULATION MODE";
+  status.innerText = simulationEnabled ? "SIMULATION MODE — SAMPLE DATA ONLY" : "Simulation OFF";
+  status.style.color = simulationEnabled ? "#b45309" : "#6b7280";
+  if (!simulationEnabled && simActive) stopSimulationTest();
+  if (simulationEnabled) {
+    alert("Simulation mode is ON. Readings are generated sample data saved only in this browser, not real sensor measurements and not uploaded to Firebase.");
+  }
+}
+
+function startSimulationTest(name) {
+  if (simActive) { alert("A simulated test is already running. Stop it before starting another."); return; }
+  const now = new Date();
+  const id = "SIM-" + now.getTime();
+  simSession = { sessionId: id, testName: name + " (SIMULATED)", start: now.toLocaleString(), stop: "Running", durationSeconds: 0, totalRecords: 0, max: simCo2, min: simCo2, _startMs: now.getTime() };
+  simSessions.push(simSession);
+  simActive = true;
+  document.getElementById("currentTest").innerText = simSession.testName;
+  document.getElementById("recording").innerText = "YES (SIMULATED)";
+  const tick = () => {
+    if (!simActive || !simSession) return;
+    simCo2 = Math.max(420, Math.min(1800, simCo2 + Math.round((Math.random() - 0.48) * 90)));
+    const t = new Date();
+    const record = { recordNumber: "SIM-" + (simRecords.length + 1), date: t.toLocaleDateString(), time: t.toLocaleTimeString(), ppm: simCo2, timestamp: t.getTime(), sessionId: simSession.sessionId, testName: simSession.testName, simulated: true };
+    simRecords.push(record);
+    simSession.totalRecords++;
+    simSession.durationSeconds = Math.floor((t.getTime() - simSession._startMs) / 1000);
+    simSession.max = Math.max(simSession.max, simCo2);
+    simSession.min = Math.min(simSession.min, simCo2);
+    localStorage.setItem("co2SimRecordsV1", JSON.stringify(simRecords));
+    localStorage.setItem("co2SimSessionsV1", JSON.stringify(simSessions));
+    document.getElementById("co2").innerText = simCo2;
+    document.getElementById("count").innerText = simRecords.length + " simulated";
+    currentRecords = currentRecords.filter(r => !r.simulated).concat(simRecords).sort((a,b) => Number(b.timestamp||0)-Number(a.timestamp||0));
+    currentSessions[simSession.sessionId] = simSession;
+    renderReadings();
+    loadSessions();
+  };
+  tick();
+  simTimer = setInterval(tick, 3000);
+}
+
+function stopSimulationTest() {
+  if (!simActive || !simSession) return;
+  simActive = false;
+  if (simTimer) clearInterval(simTimer);
+  simTimer = null;
+  const t = new Date();
+  simSession.stop = t.toLocaleString();
+  simSession.durationSeconds = Math.floor((t.getTime() - simSession._startMs) / 1000);
+  delete simSession._startMs;
+  localStorage.setItem("co2SimRecordsV1", JSON.stringify(simRecords));
+  localStorage.setItem("co2SimSessionsV1", JSON.stringify(simSessions));
+  document.getElementById("recording").innerText = "NO (SIMULATED)";
+  loadSessions(); loadRecords();
+  simSession = null;
+}
+
+function stopTest() {
+  if (simulationEnabled) { stopSimulationTest(); return; }
+  sendCommand("stop");
+}
+
+function sendCommand(cmd) {
+  fetch(FIREBASE_URL + "command.json", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(cmd)
+  }).catch(err => console.error("Command send failed", err));
+}
+
+function startTest() {
+  let name = document.getElementById("testNameInput").value.trim();
+  if (!name) {
+    alert("Enter test name.");
+    return;
+  }
+  if (simulationEnabled) startSimulationTest(name);
+  else sendCommand("start:" + name);
+  document.getElementById("testNameInput").value = "";
+}
+
+// Download individual row readings from the Session Table Actions
+function downloadSessionReadings(sessionId) {
+  let toDownload = currentRecords.filter(r => r.sessionId == sessionId);
+  let sessionObj = currentSessions[sessionId];
+  let fileName = "co2_readings.csv";
+
+  if (sessionObj) {
+    fileName = `co2_test_${sessionObj.testName.replace(/ /g, "_")}.csv`;
+  }
+
+  if (toDownload.length === 0) {
+    alert("No readings found for this test in the active records database.");
+    return;
+  }
+
+  let csv = "Test Name,Record No,Date,Time,CO2_ppm\n";
+  toDownload.forEach(r => {
+    let tName = sessionObj ? sessionObj.testName : "Unknown";
+    csv += `${tName},${r.recordNumber},${r.date},${r.time},${r.ppm}\n`;
+  });
+
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+// Delete an individual Session row
+function deleteSession(sessionId) {
+  if (!confirm("Are you sure you want to delete this test session record?")) return;
+  fetch(FIREBASE_URL + "sessions/" + sessionId + ".json", { method: "DELETE" })
+    .then(() => {
+      loadSessions();
+    }).catch(err => console.error("Delete session failed", err));
+}
+
+function downloadSessionsCSV() {
+  if (!currentSessions || Object.keys(currentSessions).length === 0) {
+    alert("No session data to download.");
+    return;
+  }
+
+  let csv = "Test Name,Start,Stop,Duration,Records,Reduced CO2 (ppm)\n";
+  Object.values(currentSessions).reverse().forEach(session => {
+    if(!session) return;
+    let reducedCO2 = (session.max && session.min) ? (session.max - session.min) : 0;
+    let formattedTime = formatDuration(session.durationSeconds);
+    csv += `${session.testName},${session.start},${session.stop},${formattedTime},${session.totalRecords},${reducedCO2}\n`;
+  });
+
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "co2_all_tests_summary.csv";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+function downloadCSV() {
+  let filter = document.getElementById("testFilter").value;
+  let toDownload = currentRecords;
+  let fileName = "co2_readings.csv";
+
+  if (filter !== "all") {
+    toDownload = currentRecords.filter(r => r.sessionId == filter);
+    let s = currentSessions[filter];
+    if(s) fileName = `co2_test_${s.testName.replace(/ /g, "_")}.csv`;
+  }
+
+  if (toDownload.length === 0) {
+    alert("No readings to download.");
+    return;
+  }
+
+  let csv = "Test Name,Record No,Date,Time,CO2_ppm\n";
+  toDownload.forEach(r => {
+    let tName = currentSessions[r.sessionId] ? currentSessions[r.sessionId].testName : "Unknown";
+    csv += `${tName},${r.recordNumber},${r.date},${r.time},${r.ppm}\n`;
+  });
+
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+// Clear all CO2 Readings only
+function clearAllReadings() {
+  if (!confirm("This will permanently delete all RAW CO2 READINGS. Your Test Sessions summary will NOT be deleted. Continue?")) return;
+  fetch(FIREBASE_URL + "records.json", { method: "DELETE" })
+    .then(() => {
+      sendCommand('clear');
+      loadRecords();
+      updateLive();
+    }).catch(err => console.error("Clear readings failed", err));
+}
+
+// Clear all Sessions only
+function clearAllSessions() {
+  if (!confirm("This will permanently delete ALL Test Sessions from the top table. Continue?")) return;
+  fetch(FIREBASE_URL + "sessions.json", { method: "DELETE" })
+    .then(() => {
+      loadSessions();
+    }).catch(err => console.error("Clear sessions failed", err));
+}
+
+setInterval(updateLive, 2000);
+setInterval(loadSessions, 5000);
+setInterval(loadRecords, 5000);
+
+updateLive();
+loadSessions();
+loadRecords();
+</script>
+
+</body>
+</html>
