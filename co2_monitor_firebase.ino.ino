@@ -6,7 +6,7 @@
 
 // =====================================================
 // HONEYWELL CO2 MONITOR
-// PIC -> ESP32 -> DS3231 + AT24C32 + Firebase
+// PIC -> ESP32 -> DS3231 + AT24C32 + Firebase *****
 // =====================================================
 
 //const char* WIFI_SSID     = "Hmm";
