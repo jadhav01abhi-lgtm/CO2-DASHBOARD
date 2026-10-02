@@ -1,110 +1,226 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>HONEYWELL CO₂ MONITOR</title>
+<title>Honeywell CO₂ Monitor Dashboard</title>
 <style>
-body { margin:0; font-family:Arial,Helvetica,sans-serif; background:#f3f6f9; color:#222; }
-.header { background:#17202a; color:white; padding:25px; text-align:center; }
-.header h1 { margin:0; font-size:28px; }
-.header p { margin:8px 0 0; opacity:.8; }
-.container { max-width:1200px; margin:auto; padding:20px; }
-.cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:15px; }
-.card { background:white; border-radius:12px; padding:20px; box-shadow:0 3px 10px rgba(0,0,0,.08); }
-.card h3 { margin-top:0; font-size:15px; color:#666; }
-.value { font-size:28px; font-weight:bold; }
-.test-controls { background: white; padding: 20px; border-radius: 12px; margin-top: 20px; display:flex; gap:10px; flex-wrap:wrap; align-items:center; box-shadow:0 3px 10px rgba(0,0,0,.08); }
-input[type="text"], select { padding:10px; border-radius:7px; border:1px solid #ccc; font-size:15px; }
-input[type="text"] { width: 250px; }
-button { border:none; padding:12px 22px; border-radius:7px; color:white; font-size:15px; cursor:pointer; }
-.start { background:#198754; }
-.stop { background:#dc3545; }
-.download { background:#0d6efd; }
-.clear { background:#6c757d; }
-.action-btn { padding: 6px 12px; font-size: 13px; margin: 2px; }
-.tablebox { margin-top:25px; background:white; border-radius:12px; padding:20px; box-shadow:0 3px 10px rgba(0,0,0,.08); overflow-x:auto; }
-table { width:100%; border-collapse:collapse; min-width: 800px; }
-th,td { padding:12px 10px; border-bottom:1px solid #ddd; text-align:center; }
-th { background:#f1f3f5; }
-.filter-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;}
-.button-group { display: flex; gap: 10px; flex-wrap: wrap; }
+  :root {
+    --primary: #0f172a;
+    --accent: #2563eb;
+    --success: #16a34a;
+    --danger: #dc2626;
+    --warning: #d97706;
+    --bg: #f8fafc;
+    --card-bg: #ffffff;
+    --text: #1e293b;
+    --text-muted: #64748b;
+    --border: #e2e8f0;
+  }
+
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+
+  .header {
+    background: var(--primary);
+    color: white;
+    padding: 30px 20px;
+    text-align: center;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+  }
+  .header h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: 0.5px; }
+  .header p { margin: 6px 0 0; opacity: 0.75; font-size: 14px; }
+
+  .container { max-width: 1280px; margin: 0 auto; padding: 24px 16px; }
+
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+  .card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.1);
+    border: 1px solid var(--border);
+  }
+  .card h3 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
+  .card .value { font-size: 26px; font-weight: 700; color: var(--primary); }
+
+  .test-controls {
+    background: var(--card-bg);
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 24px;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    border: 1px solid var(--border);
+  }
+
+  input[type="text"], select {
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  input[type="text"]:focus, select:focus { border-color: var(--accent); }
+  input[type="text"] { flex: 1; min-width: 240px; }
+
+  button {
+    border: none;
+    padding: 10px 18px;
+    border-radius: 8px;
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+  }
+  button:active { transform: scale(0.98); }
+  button:hover { opacity: 0.9; }
+
+  .start { background: var(--success); }
+  .stop { background: var(--danger); }
+  .download { background: var(--accent); }
+  .clear { background: #64748b; }
+  .action-btn { padding: 6px 10px; font-size: 12px; margin: 2px; }
+
+  .tablebox {
+    margin-bottom: 24px;
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    border: 1px solid var(--border);
+    overflow-x: auto;
+  }
+
+  .filter-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .filter-row h2 { margin: 0; font-size: 18px; font-weight: 600; }
+  .button-group { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  table { width: 100%; border-collapse: collapse; min-width: 750px; text-align: left; }
+  th, td { padding: 12px 14px; border-bottom: 1px solid var(--border); font-size: 14px; }
+  th { background: #f8fafc; font-weight: 600; color: var(--text-muted); text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; }
+  tr:hover td { background: #f8fafc; }
+
+  .badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 9999px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .badge-sim { background: #fef3c7; color: #b45309; }
+  .badge-live { background: #dcfce7; color: #166534; }
+
+  .empty-state { text-align: center; color: var(--text-muted); padding: 24px; font-style: italic; }
 </style>
 </head>
 <body>
 
 <div class="header">
   <h1>HONEYWELL CO₂ MONITOR</h1>
-  <p>Live from anywhere - powered by Firebase</p>
+  <p>Live environmental telemetry — Powered by Firebase</p>
 </div>
 
 <div class="container">
+  <!-- Metrics Cards -->
   <div class="cards">
-    <div class="card"><h3>Live CO₂</h3><div class="value"><span id="co2">---</span> ppm</div></div>
-    <div class="card"><h3>Active Test</h3><div class="value" id="currentTest" style="font-size:20px;">---</div></div>
-    <div class="card"><h3>Recording</h3><div class="value" id="recording">---</div></div>
+    <div class="card"><h3>Live CO₂</h3><div class="value"><span id="co2">---</span> <span style="font-size:16px; font-weight:normal;">ppm</span></div></div>
+    <div class="card"><h3>Active Test</h3><div class="value" id="currentTest" style="font-size:18px; margin-top:4px;">---</div></div>
+    <div class="card"><h3>Recording Status</h3><div class="value" id="recording" style="font-size:18px; margin-top:4px;">---</div></div>
     <div class="card"><h3>Total Records</h3><div class="value" id="count">---</div></div>
   </div>
 
+  <!-- Controls Bar -->
   <div class="test-controls">
-    <input type="text" id="testNameInput" maxlength="31" placeholder="Enter Test Name (e.g. Room A Test)">
-    <button class="start" onclick="startTest()">START TEST</button>
-    <button class="stop" onclick="stopTest()">STOP TEST</button>
-    <button class="download" id="simToggle" onclick="toggleSimulation()">ENABLE SIMULATION MODE</button>
-    <span id="simStatus" style="font-weight:bold;color:#b45309;">Simulation OFF</span>
+    <input type="text" id="testNameInput" maxlength="31" placeholder="Enter Test Name (e.g., Room A Clean Air Test)">
+    <button class="start" onclick="startTest()">Start Test</button>
+    <button class="stop" onclick="stopTest()">Stop Test</button>
+    <button class="download" id="simToggle" onclick="toggleSimulation()">Enable Simulation</button>
+    <span id="simStatus" style="font-weight:600; color:var(--warning); font-size:13px;">Simulation OFF</span>
   </div>
 
+  <!-- Test Sessions Table -->
   <div class="tablebox">
     <div class="filter-row">
-      <h2 style="margin:0;">Test Records (Sessions)</h2>
+      <h2>Test Sessions Summary</h2>
       <div class="button-group">
-        <button class="download" onclick="downloadSessionsCSV()">DOWNLOAD SUMMARY</button>
-        <button class="clear" onclick="clearAllSessions()">CLEAR ALL SESSIONS</button>
+        <button class="download" onclick="downloadSessionsCSV()">Download Summary</button>
+        <button class="clear" onclick="clearAllSessions()">Clear All Sessions</button>
       </div>
     </div>
     <table>
       <thead>
         <tr>
           <th>Test Name</th>
-          <th>Start</th>
-          <th>Stop</th>
+          <th>Start Time</th>
+          <th>Stop Time</th>
           <th>Duration</th>
           <th>Records</th>
-          <th>Reduced CO₂ (ppm)</th>
+          <th>Δ CO₂ (ppm)</th>
           <th>Actions</th>
         </tr>
       </thead>
-      <tbody id="sessionsTable"></tbody>
+      <tbody id="sessionsTable">
+        <tr><td colspan="7" class="empty-state">Loading sessions...</td></tr>
+      </tbody>
     </table>
   </div>
 
+  <!-- CO2 Readings Table -->
   <div class="tablebox">
     <div class="filter-row">
-      <h2 style="margin:0;">CO₂ Readings</h2>
+      <h2>CO₂ Readings Log</h2>
       <div class="button-group">
         <select id="testFilter" onchange="renderReadings()">
           <option value="all">All Tests</option>
         </select>
-        <button class="download" onclick="downloadCSV()">DOWNLOAD SELECTED READINGS</button>
-        <button class="clear" onclick="clearAllReadings()">CLEAR ALL READINGS</button>
+        <button class="download" onclick="downloadCSV()">Download Filtered CSV</button>
+        <button class="clear" onclick="clearAllReadings()">Clear All Readings</button>
       </div>
     </div>
     <table>
       <thead>
-        <tr><th>No.</th><th>Date</th><th>Time</th><th>CO₂ (ppm)</th></tr>
+        <tr>
+          <th>No.</th>
+          <th>Date</th>
+          <th>Time</th>
+          <th>CO₂ (ppm)</th>
+        </tr>
       </thead>
-      <tbody id="records"></tbody>
+      <tbody id="records">
+        <tr><td colspan="4" class="empty-state">Loading readings...</td></tr>
+      </tbody>
     </table>
   </div>
 </div>
 
 <script>
-// ---- CHANGE THIS if your database URL is ever different ----
 const FIREBASE_URL = "https://co2-monitor-49cbd-default-rtdb.firebaseio.com/";
 
 let currentRecords = [];
 let currentSessions = {};
-// Simulation data is stored only in this browser (localStorage), never in Firebase.
 let simulationEnabled = false;
 let simActive = false;
 let simTimer = null;
@@ -113,13 +229,11 @@ let simRecords = JSON.parse(localStorage.getItem("co2SimRecordsV1") || "[]");
 let simSessions = JSON.parse(localStorage.getItem("co2SimSessionsV1") || "[]");
 let simCo2 = 650;
 
-// Helper to format duration from seconds to Hours, Minutes, Seconds
 function formatDuration(seconds) {
-  if (seconds === undefined || seconds === null) return "0s";
+  if (!seconds || isNaN(seconds)) return "0s";
   let h = Math.floor(seconds / 3600);
   let m = Math.floor((seconds % 3600) / 60);
   let s = seconds % 60;
-  
   let res = [];
   if (h > 0) res.push(h + "h");
   if (m > 0) res.push(m + "m");
@@ -146,39 +260,39 @@ function loadSessions() {
     .then(data => {
       currentSessions = data || {};
       simSessions.forEach(session => { currentSessions[session.sessionId] = session; });
-      if (Object.keys(currentSessions).length === 0) {
-        document.getElementById('sessionsTable').innerHTML = "";
+      
+      const sessionList = Object.values(currentSessions).filter(Boolean);
+      if (sessionList.length === 0) {
+        document.getElementById('sessionsTable').innerHTML = `<tr><td colspan="7" class="empty-state">No test sessions recorded yet.</td></tr>`;
         return;
       }
       
       let html = "";
       let filterDropdown = document.getElementById("testFilter");
       let currentFilter = filterDropdown.value;
-      
       filterDropdown.innerHTML = '<option value="all">All Tests</option>';
 
-      Object.values(currentSessions).reverse().forEach(session => {
-        if(!session) return;
-        
-        let reducedCO2 = (session.max && session.min) ? (session.max - session.min) : 0;
+      sessionList.reverse().forEach(session => {
+        let reducedCO2 = (session.max != null && session.min != null) ? (session.max - session.min) : 0;
         let formattedTime = formatDuration(session.durationSeconds);
+        let isSim = String(session.testName || "").includes("(SIMULATED)");
         
         html += `<tr>
-          <td>${session.testName}</td>
+          <td>${session.testName} ${isSim ? '<span class="badge badge-sim">SIM</span>' : ''}</td>
           <td>${session.start}</td>
           <td>${session.stop}</td>
           <td>${formattedTime}</td>
           <td>${session.totalRecords}</td>
           <td>${reducedCO2}</td>
           <td>
-            <button class="download action-btn" onclick="downloadSessionReadings(${JSON.stringify(session.sessionId)})">Download</button>
-            <button class="stop action-btn" onclick="deleteSession(${session.sessionId})">Delete</button>
+            <button class="download action-btn" onclick="downloadSessionReadings('${session.sessionId}')">Download</button>
+            <button class="stop action-btn" onclick="deleteSession('${session.sessionId}')">Delete</button>
           </td>
         </tr>`;
         
         let opt = document.createElement("option");
         opt.value = session.sessionId;
-        opt.text = `${session.testName}`;
+        opt.text = session.testName;
         filterDropdown.appendChild(opt);
       });
       
@@ -191,22 +305,28 @@ function loadRecords() {
   fetch(FIREBASE_URL + "records.json")
     .then(r => r.json())
     .then(data => {
-      currentRecords = Object.values(data || {}).concat(simRecords).sort((a, b) => (Number(b.timestamp || 0) - Number(a.timestamp || 0)));
+      let firebaseRecords = Object.values(data || {});
+      currentRecords = firebaseRecords.concat(simRecords).sort((a, b) => (Number(b.timestamp || 0) - Number(a.timestamp || 0)));
       renderReadings();
     }).catch(err => console.error("Records fetch failed", err));
 }
 
 function renderReadings() {
   let filter = document.getElementById("testFilter").value;
-  let html = "";
-  
   let toRender = currentRecords;
   if (filter !== "all") {
-    toRender = currentRecords.filter(r => r.sessionId == filter);
+    toRender = currentRecords.filter(r => String(r.sessionId) === String(filter));
   }
 
-  toRender.forEach((r, index) => {
-    html += `<tr><td>${r.recordNumber}</td><td>${r.date}</td><td>${r.time}</td><td>${r.ppm}${r.simulated ? " (SIMULATED)" : ""}</td></tr>`;
+  if (toRender.length === 0) {
+    document.getElementById('records').innerHTML = `<tr><td colspan="4" class="empty-state">No telemetry readings available.</td></tr>`;
+    return;
+  }
+
+  let html = "";
+  toRender.forEach(r => {
+    let simBadge = r.simulated ? ' <span class="badge badge-sim">SIMULATED</span>' : '';
+    html += `<tr><td>${r.recordNumber}</td><td>${r.date}</td><td>${r.time}</td><td>${r.ppm}${simBadge}</td></tr>`;
   });
   document.getElementById('records').innerHTML = html;
 }
@@ -215,17 +335,14 @@ function toggleSimulation() {
   simulationEnabled = !simulationEnabled;
   const btn = document.getElementById("simToggle");
   const status = document.getElementById("simStatus");
-  btn.innerText = simulationEnabled ? "DISABLE SIMULATION MODE" : "ENABLE SIMULATION MODE";
-  status.innerText = simulationEnabled ? "SIMULATION MODE — SAMPLE DATA ONLY" : "Simulation OFF";
-  status.style.color = simulationEnabled ? "#b45309" : "#6b7280";
+  btn.innerText = simulationEnabled ? "Disable Simulation" : "Enable Simulation";
+  status.innerText = simulationEnabled ? "Simulation Active (Local Sandbox)" : "Simulation OFF";
+  status.style.color = simulationEnabled ? "var(--success)" : "var(--warning)";
   if (!simulationEnabled && simActive) stopSimulationTest();
-  if (simulationEnabled) {
-    alert("Simulation mode is ON. Readings are generated sample data saved only in this browser, not real sensor measurements and not uploaded to Firebase.");
-  }
 }
 
 function startSimulationTest(name) {
-  if (simActive) { alert("A simulated test is already running. Stop it before starting another."); return; }
+  if (simActive) { alert("A simulation test is already running."); return; }
   const now = new Date();
   const id = "SIM-" + now.getTime();
   simSession = { sessionId: id, testName: name + " (SIMULATED)", start: now.toLocaleString(), stop: "Running", durationSeconds: 0, totalRecords: 0, max: simCo2, min: simCo2, _startMs: now.getTime() };
@@ -233,11 +350,12 @@ function startSimulationTest(name) {
   simActive = true;
   document.getElementById("currentTest").innerText = simSession.testName;
   document.getElementById("recording").innerText = "YES (SIMULATED)";
+  
   const tick = () => {
     if (!simActive || !simSession) return;
-    simCo2 = Math.max(420, Math.min(1800, simCo2 + Math.round((Math.random() - 0.48) * 90)));
+    simCo2 = Math.max(400, Math.min(2000, simCo2 + Math.round((Math.random() - 0.48) * 80)));
     const t = new Date();
-    const record = { recordNumber: "SIM-" + (simRecords.length + 1), date: t.toLocaleDateString(), time: t.toLocaleTimeString(), ppm: simCo2, timestamp: t.getTime(), sessionId: simSession.sessionId, testName: simSession.testName, simulated: true };
+    const record = { recordNumber: "S-" + (simRecords.length + 1), date: t.toLocaleDateString(), time: t.toLocaleTimeString(), ppm: simCo2, timestamp: t.getTime(), sessionId: simSession.sessionId, testName: simSession.testName, simulated: true };
     simRecords.push(record);
     simSession.totalRecords++;
     simSession.durationSeconds = Math.floor((t.getTime() - simSession._startMs) / 1000);
@@ -246,10 +364,8 @@ function startSimulationTest(name) {
     localStorage.setItem("co2SimRecordsV1", JSON.stringify(simRecords));
     localStorage.setItem("co2SimSessionsV1", JSON.stringify(simSessions));
     document.getElementById("co2").innerText = simCo2;
-    document.getElementById("count").innerText = simRecords.length + " simulated";
-    currentRecords = currentRecords.filter(r => !r.simulated).concat(simRecords).sort((a,b) => Number(b.timestamp||0)-Number(a.timestamp||0));
-    currentSessions[simSession.sessionId] = simSession;
-    renderReadings();
+    document.getElementById("count").innerText = simRecords.length + " (Simulated)";
+    loadRecords();
     loadSessions();
   };
   tick();
@@ -267,8 +383,9 @@ function stopSimulationTest() {
   delete simSession._startMs;
   localStorage.setItem("co2SimRecordsV1", JSON.stringify(simRecords));
   localStorage.setItem("co2SimSessionsV1", JSON.stringify(simSessions));
-  document.getElementById("recording").innerText = "NO (SIMULATED)";
-  loadSessions(); loadRecords();
+  document.getElementById("recording").innerText = "NO";
+  loadSessions(); 
+  loadRecords();
   simSession = null;
 }
 
@@ -287,16 +404,12 @@ function sendCommand(cmd) {
 
 function startTest() {
   let name = document.getElementById("testNameInput").value.trim();
-  if (!name) {
-    alert("Enter test name.");
-    return;
-  }
+  if (!name) { alert("Please enter a test name."); return; }
   if (simulationEnabled) startSimulationTest(name);
   else sendCommand("start:" + name);
   document.getElementById("testNameInput").value = "";
 }
 
-// Create a CSV download and allow the browser time to start it before revoking the URL.
 function saveCSVFile(csv, fileName) {
   const blob = new Blob(["\ufeff", csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
@@ -307,59 +420,54 @@ function saveCSVFile(csv, fileName) {
   document.body.appendChild(link);
   link.click();
   link.remove();
-  // Immediate revocation can cancel downloads in some browsers.
   setTimeout(() => URL.revokeObjectURL(url), 1500);
 }
 
 function csvCell(value) {
-  const text = String(value ?? "");
-  return '"' + text.replace(/"/g, '""') + '"';
+  return '"' + String(value ?? "").replace(/"/g, '""') + '"';
 }
 
-// Download individual row readings from the Session Table Actions
 function downloadSessionReadings(sessionId) {
-  const sessionObj = currentSessions[String(sessionId)] || currentSessions[sessionId];
+  const sessionObj = currentSessions[String(sessionId)];
   const toDownload = currentRecords.filter(r => String(r.sessionId) === String(sessionId));
   const safeName = (sessionObj?.testName || "co2_readings").replace(/[^a-z0-9_-]+/gi, "_");
-  const fileName = `co2_test_${safeName}.csv`;
-
+  
   if (toDownload.length === 0) {
-    alert("No readings are available for this session yet. If it is a simulated test, start it and wait for at least one sample reading.");
+    alert("No readings found for this session.");
     return;
   }
 
-  const rows = [["Test Name", "Record No", "Date", "Time", "CO2_ppm", "Data Type"]];
-  toDownload.forEach(r => rows.push([
-    sessionObj?.testName || r.testName || "Unknown",
-    r.recordNumber, r.date, r.time, r.ppm, r.simulated ? "SIMULATED SAMPLE" : "SENSOR DATA"
-  ]));
-  const csv = rows.map(row => row.map(csvCell).join(",")).join("\r\n");
-  saveCSVFile(csv, fileName);
+  const rows = [["Test Name", "Record No", "Date", "Time", "CO2_ppm", "Type"]];
+  toDownload.forEach(r => rows.push([sessionObj?.testName || r.testName || "Unknown", r.recordNumber, r.date, r.time, r.ppm, r.simulated ? "SIM" : "LIVE"]));
+  saveCSVFile(rows.map(row => row.map(csvCell).join(",")).join("\r\n"), `co2_test_${safeName}.csv`);
 }
 
-// Delete an individual Session row
 function deleteSession(sessionId) {
-  if (!confirm("Are you sure you want to delete this test session record?")) return;
-  fetch(FIREBASE_URL + "sessions/" + sessionId + ".json", { method: "DELETE" })
-    .then(() => {
-      loadSessions();
-    }).catch(err => console.error("Delete session failed", err));
+  if (!confirm("Are you sure you want to delete this test session?")) return;
+  if (String(sessionId).startsWith("SIM-")) {
+    simSessions = simSessions.filter(s => String(s.sessionId) !== String(sessionId));
+    simRecords = simRecords.filter(r => String(r.sessionId) !== String(sessionId));
+    localStorage.setItem("co2SimRecordsV1", JSON.stringify(simRecords));
+    localStorage.setItem("co2SimSessionsV1", JSON.stringify(simSessions));
+    loadSessions();
+    loadRecords();
+  } else {
+    fetch(FIREBASE_URL + "sessions/" + sessionId + ".json", { method: "DELETE" })
+      .then(() => loadSessions())
+      .catch(err => console.error("Delete session failed", err));
+  }
 }
 
 function downloadSessionsCSV() {
-  const sessions = Object.values(currentSessions || {}).filter(Boolean).reverse();
-  if (sessions.length === 0) {
-    alert("No session data to download.");
-    return;
-  }
+  const sessions = Object.values(currentSessions || {}).filter(Boolean);
+  if (sessions.length === 0) { alert("No sessions summary available."); return; }
 
-  const rows = [["Test Name", "Start", "Stop", "Duration", "Records", "Reduced CO2 (ppm)", "Data Type"]];
-  sessions.forEach(session => {
-    const reducedCO2 = (session.max != null && session.min != null) ? (session.max - session.min) : 0;
-    rows.push([session.testName, session.start, session.stop, formatDuration(session.durationSeconds), session.totalRecords, reducedCO2, String(session.testName || "").includes("(SIMULATED)") ? "SIMULATED SAMPLE" : "SESSION DATA"]);
+  const rows = [["Test Name", "Start", "Stop", "Duration", "Records", "Delta CO2 (ppm)"]];
+  sessions.forEach(s => {
+    let rCO2 = (s.max != null && s.min != null) ? (s.max - s.min) : 0;
+    rows.push([s.testName, s.start, s.stop, formatDuration(s.durationSeconds), s.totalRecords, rCO2]);
   });
-  const csv = rows.map(row => row.map(csvCell).join(",")).join("\r\n");
-  saveCSVFile(csv, "co2_all_tests_summary.csv");
+  saveCSVFile(rows.map(row => row.map(csvCell).join(",")).join("\r\n"), "co2_all_tests_summary.csv");
 }
 
 function downloadCSV() {
@@ -369,27 +477,22 @@ function downloadCSV() {
 
   if (filter !== "all") {
     toDownload = currentRecords.filter(r => String(r.sessionId) === String(filter));
-    const session = currentSessions[String(filter)] || currentSessions[filter];
+    const session = currentSessions[String(filter)];
     if (session) fileName = `co2_test_${session.testName.replace(/[^a-z0-9_-]+/gi, "_")}.csv`;
   }
 
-  if (toDownload.length === 0) {
-    alert("No readings to download for the selected test.");
-    return;
-  }
+  if (toDownload.length === 0) { alert("No readings to download."); return; }
 
-  const rows = [["Test Name", "Record No", "Date", "Time", "CO2_ppm", "Data Type"]];
+  const rows = [["Test Name", "Record No", "Date", "Time", "CO2_ppm"]];
   toDownload.forEach(r => {
-    const session = currentSessions[String(r.sessionId)] || currentSessions[r.sessionId];
-    rows.push([session?.testName || r.testName || "Unknown", r.recordNumber, r.date, r.time, r.ppm, r.simulated ? "SIMULATED SAMPLE" : "SENSOR DATA"]);
+    const session = currentSessions[String(r.sessionId)];
+    rows.push([session?.testName || r.testName || "Unknown", r.recordNumber, r.date, r.time, r.ppm]);
   });
-  const csv = rows.map(row => row.map(csvCell).join(",")).join("\r\n");
-  saveCSVFile(csv, fileName);
+  saveCSVFile(rows.map(row => row.map(csvCell).join(",")).join("\r\n"), fileName);
 }
 
-// Clear all CO2 Readings only
 function clearAllReadings() {
-  if (!confirm("This will permanently delete all RAW CO2 READINGS. Your Test Sessions summary will NOT be deleted. Continue?")) return;
+  if (!confirm("Delete all raw CO2 readings? Sessions summary will remain.")) return;
   fetch(FIREBASE_URL + "records.json", { method: "DELETE" })
     .then(() => {
       sendCommand('clear');
@@ -398,13 +501,11 @@ function clearAllReadings() {
     }).catch(err => console.error("Clear readings failed", err));
 }
 
-// Clear all Sessions only
 function clearAllSessions() {
-  if (!confirm("This will permanently delete ALL Test Sessions from the top table. Continue?")) return;
+  if (!confirm("Permanently delete all Test Sessions?")) return;
   fetch(FIREBASE_URL + "sessions.json", { method: "DELETE" })
-    .then(() => {
-      loadSessions();
-    }).catch(err => console.error("Clear sessions failed", err));
+    .then(() => loadSessions())
+    .catch(err => console.error("Clear sessions failed", err));
 }
 
 setInterval(updateLive, 2000);
