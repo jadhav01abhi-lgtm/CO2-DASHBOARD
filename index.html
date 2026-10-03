@@ -1491,6 +1491,7 @@ const pageSize = 15;
 
 // Unified Start/Stop State Management
 let isTestActive = false;
+let intervalGraceUntil = 0; // stops live poll from reverting a just-changed interval
 let userActionGraceUntil = 0; // Grace timestamp prevents polling from prematurely reversing button state
 
 // Audio & Desktop Notification Alert Engines
@@ -1535,7 +1536,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   // Polling Intervals
   livePollTimer = setInterval(pollLiveTelemetry, POLL_INTERVAL_SEC * 1000);
-  dataPollTimer = setInterval(pollDatabase, 5000);
+  dataPollTimer = setInterval(pollDatabase, 10000);
   liveSessionTick = setInterval(updateActiveSessionClock, 1000);
   countdownInterval = setInterval(updateCountdownTicker, 1000);
 });
@@ -1732,6 +1733,7 @@ function promptCustomInterval() {
 
 function setRecordingInterval(seconds) {
   RECORD_INTERVAL_SEC = seconds;
+  intervalGraceUntil = Date.now() + 8000;
   nextSampleCountdown = seconds;
   localStorage.setItem("co2_record_interval_sec", seconds.toString());
   updateIntervalBadge(seconds);
@@ -2258,7 +2260,16 @@ function pollLiveTelemetry() {
       }
 
       if (data.recordIntervalSec) {
-        updateIntervalBadge(data.recordIntervalSec);
+        const devSec = Number(data.recordIntervalSec);
+        if (Date.now() > intervalGraceUntil && devSec !== RECORD_INTERVAL_SEC) {
+          // Follow the interval actually used by the ESP32
+          RECORD_INTERVAL_SEC = devSec;
+          nextSampleCountdown = devSec;
+          localStorage.setItem("co2_record_interval_sec", String(devSec));
+          initIntervalSelector();
+        } else {
+          updateIntervalBadge(devSec);
+        }
       }
 
       const sMin = document.getElementById("sessionMin");
@@ -2393,12 +2404,13 @@ function renderSessionsTable() {
 }
 
 function loadRecords() {
-  fetch(FIREBASE_URL + "records.json")
+  // Download only the newest 300 records (keys start with timestamp) instead of everything
+  fetch(FIREBASE_URL + "records.json?orderBy=%22%24key%22&limitToLast=300")
     .then(res => res.json())
     .then(data => {
       const list = Object.values(data || {});
       currentRecords = list;
-      applyReadingsFilter();
+      applyReadingsFilter(true);
       updateChartData();
     })
     .catch(err => console.warn("Load records failed:", err));
@@ -2421,7 +2433,7 @@ function populateFilterDropdown() {
   select.value = selected;
 }
 
-function applyReadingsFilter() {
+function applyReadingsFilter(keepPage) {
   const sel = document.getElementById("testFilterSelect");
   if (!sel) return;
   const filter = sel.value;
@@ -2433,7 +2445,8 @@ function applyReadingsFilter() {
     filteredRecords = combined.filter(r => String(r.sessionId) === String(filter));
   }
 
-  currentPage = 1;
+  const maxPage = Math.max(1, Math.ceil(filteredRecords.length / pageSize));
+  currentPage = keepPage ? Math.min(currentPage, maxPage) : 1;
   renderReadingsPage();
 }
 
